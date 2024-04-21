@@ -1,0 +1,94 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="~/css/index.css">
+    <title>Chat GPT</title>
+</head>
+<body>
+    <section class="main-container">
+        <div class="chat-field" id="main-chat">
+        </div>
+        <div class="input-text-field">
+                <input type="text" id="message" placeholder="Text here.." />
+                <input type="button" id="sendBtn" value="Send" />
+        </div>
+    </section>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.js"></script>
+    <script>
+
+        let userId;
+        let userRoomId;
+
+        const hubConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/chat")
+            .build();
+
+        document.getElementById("sendBtn").addEventListener("click", function () {
+            const buttonElem = document.getElementById("sendBtn");
+            buttonElem.disabled = true;
+
+            const userRequest = document.getElementById("message").value;
+            
+            document.getElementById("message").value = "";
+
+            createChatElement("User", userRequest);
+
+            hubConnection.invoke("SendToServer", userRequest, userRoomId) 
+                .then(function() {
+                    console.log("request: " + userRequest + " sended");
+                })
+                .catch(function(err) {
+                    console.error(err.toString());
+                });
+        });
+
+        hubConnection.on("ReceiveFromServer", function(response) {
+            createChatElement("ChatGPT", response);
+        })
+
+        function createChatElement(userName, message) {
+
+            const newMessageElem = document.createElement("p");
+            newMessageElem.innerHTML = "<b>" + userName + ":</b> " + message;
+
+            
+        const chatField = document.getElementById("main-chat");
+
+            chatField.appendChild(newMessageElem);
+
+            console.log("message: " + message);
+
+            const buttonElem = document.getElementById("sendBtn");
+            buttonElem.disabled = false;
+        }
+
+
+        hubConnection.start()
+            .then(function()
+            {
+                console.log("connected");
+
+                hubConnection.on("ReceiveUserParams", function (id, roomId) {
+                    userId = id;
+                    userRoomId = roomId;
+
+                    console.log("user id: " + userId + " room id: " + userRoomId);
+                });
+
+                hubConnection.invoke("SetUserParameters")
+                    .then(function () {
+                        console.log("user params invoked");
+                    })
+                    .catch(function (err) {
+                        console.error(err.toString());
+                    });
+            })
+            .catch(function (err) {
+                console.error(err.toString());
+            })
+
+    </script>
+</body>
+</html>
